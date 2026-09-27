@@ -6,8 +6,12 @@ readme = "README.md"
 authors = [
     { name = "diannne", email = "popovadiana107@gmail.com" }
 ]
-requires-python = ">=3.11"
-dependencies = []
+requires-python = ">=3.14"
+dependencies = [
+    "httpx>=0.28.1",
+    "requests>=2.31",
+    "rich>=15.0.0",
+]
 
 [project.scripts]
 my-uv-app = "my_uv_app:main"
@@ -15,3 +19,8 @@ my-uv-app = "my_uv_app:main"
 [build-system]
 requires = ["uv_build>=0.12.19,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
