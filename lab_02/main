@@ -1,0 +1,393 @@
+def load_orders(path):
+    def field(parts, i):
+        return parts[i] if i < len(parts) else ""
+
+    orders = []
+    with open(path, encoding="utf-8") as f:
+        for line_no, line in enumerate(f, 1):
+            line = line.strip()
+            if not line:
+                continue
+            parts = [p.strip() for p in line.split(";")]
+
+            try:
+                number = int(field(parts, 0))
+            except ValueError:
+                number = -1
+
+            try:
+                quantity = int(field(parts, 3))
+            except ValueError:
+                quantity = -1
+
+            try:
+                price = float(field(parts, 4))
+            except ValueError:
+                price = -1.0
+
+            orders.append({
+                "number": number,
+                "customer": field(parts, 1),
+                "category": field(parts, 2),
+                "quantity": quantity,
+                "price": price,
+                "status": field(parts, 5),
+                "_line": line_no,
+                "_fields": len(parts),
+            })
+    return orders
+
+
+def error_check(orders):
+    used_id = []
+    errors_reports = []
+    status = ["новый", "в обработке", "выполнен", "отменён"]
+    clean = []
+    for o in orders:
+        num = o["number"]
+        if o["_fields"] != 6:
+            errors_reports.append(f"Строка {o['_line']}: неверное количество полей.\n")
+            continue
+        if num <= 0:
+            errors_reports.append(f"Строка {o['_line']}: номер заказа должен быть положительным целым числом.\n")
+            continue
+        if num in used_id:
+            errors_reports.append(f"Строка {o['_line']}: повторяющийся номер заказа {num}.\n")
+            continue
+        if o["customer"] == "":
+            errors_reports.append(f"Строка {o['_line']}: имя покупателя является пустой строкой.\n")
+            continue
+        if o["category"] == "":
+            errors_reports.append(f"Строка {o['_line']}: категория является пустой строкой.\n")
+            continue
+        if o["quantity"] <= 0:
+            errors_reports.append(f"Строка {o['_line']}: количество должно быть положительным целым числом.\n")
+            continue
+        if o["price"] <= 0:
+            errors_reports.append(f"Строка {o['_line']}: цена должна быть положительным числом.\n")
+            continue
+        if o["status"].lower() not in status:
+            errors_reports.append(f"Строка {o['_line']}: неизвестный статус «{o['status']}».\n")
+            continue
+        o["status"] = o["status"].lower()
+        used_id.append(num)
+        clean.append(o)
+    orders[:] = clean
+    return errors_reports
+
+
+def calc_order_cost(order):
+    return round(order["quantity"] * order["price"], 2)
+
+
+assert calc_order_cost({"quantity": 2, "price": 100}) == 200
+assert calc_order_cost({"quantity": 0, "price": 100}) == 0
+assert calc_order_cost({"quantity": 5, "price": 0}) == 0
+
+
+def calc_revenue(orders):
+    revenue = 0
+    for o in orders:
+        if o["status"] == "выполнен":
+            revenue += calc_order_cost(o)
+    return revenue
+
+
+assert calc_revenue([{"quantity": 2, "price": 100, "status": "выполнен"}]) == 200
+assert calc_revenue([]) == 0
+assert calc_revenue([{"quantity": 1, "price": 100, "status": "новый"}]) == 0
+
+
+def category_by_cost(order):
+    cost = calc_order_cost(order)
+    if cost < 1000:
+        return "Малый"
+    elif cost >= 5000:
+        return "Крупный"
+    else:
+        return "Средний"
+
+
+assert category_by_cost({"quantity": 1, "price": 500}) == "Малый"
+assert category_by_cost({"quantity": 1, "price": 3000}) == "Средний"
+assert category_by_cost({"quantity": 1, "price": 10000}) == "Крупный"
+assert category_by_cost({"quantity": 1, "price": 1000}) == "Средний"
+assert category_by_cost({"quantity": 1, "price": 5000}) == "Крупный"
+assert category_by_cost({"quantity": 1, "price": 999.99}) == "Малый"
+assert category_by_cost({"quantity": 1, "price": 4999.99}) == "Средний"
+
+
+def result(orders):
+    lines = []
+    for o in orders:
+        lines.append(
+            f'{o["number"]}; {o["customer"]}; {o["category"]}; '
+            f'кол-во: {o["quantity"]}; цена: {o["price"]}; '
+            f'стоимость: {calc_order_cost(o)}; '
+            f'статус: {o["status"]}; категория: {category_by_cost(o)}'
+        )
+    return "\n".join(lines)
+
+
+def sort_one(orders):
+    return (sorted(orders, key=lambda o: (-calc_order_cost(o), o["number"])))
+
+
+def sort_two(orders):
+    return sorted(orders, key=lambda o: (o["category"], o["customer"]))
+
+
+_test_order = {
+    "number": 1,
+    "customer": "Иванов",
+    "category": "Книги",
+    "quantity": 2,
+    "price": 100.0,
+    "status": "выполнен",
+}
+
+
+def filter_by_status(orders, i):
+    found = []
+    for o in orders:
+        if i.strip().lower() == o["status"].lower():
+            found.append(o)
+    return result(found)
+
+
+assert len(filter_by_status([_test_order], "выполнен")) > 0
+assert filter_by_status([], "выполнен") == ""
+assert filter_by_status([_test_order], "отменён") == ""
+
+
+def filter_by_category(orders, i):
+    found = []
+    for o in orders:
+        if i.strip().lower() == o["category"].lower():
+            found.append(o)
+    return result(found)
+
+
+assert len(filter_by_category([_test_order], "книги")) > 0
+assert filter_by_category([], "Книги") == ""
+assert filter_by_category([_test_order], "Еда") == ""
+
+
+def filter_by_customer(orders, i):
+    found = []
+    for o in orders:
+        if i.strip().lower() in o["customer"].lower():
+            found.append(o)
+    return result(found)
+
+
+assert len(filter_by_customer([_test_order], "иванов")) > 0
+assert filter_by_customer([], "Иванов") == ""
+assert filter_by_customer([_test_order], "Петров") == ""
+
+
+def big_orders(orders):
+    found = []
+    for o in orders:
+        if category_by_cost(o) == 'Крупный':
+            found.append(o)
+    return result(found)
+
+
+def products_category(orders):
+    prodcategory = set()
+    for o in orders:
+        if o["category"] not in prodcategory:
+            prodcategory.add(o["category"])
+    return sorted(prodcategory)
+
+
+def statistic_by_products_category(orders):
+    result = ''
+    for i in products_category(orders):
+        count = 0
+        count_products = 0
+        cost_of_orders = 0
+        cost_of_complt_orders = 0
+        average_cost = 0
+        for o in orders:
+            if o["category"] == i:
+                count += 1
+                count_products += o["quantity"]
+                cost_of_orders += calc_order_cost(o)
+                if o["status"] == "выполнен":
+                    cost_of_complt_orders += calc_order_cost(o)
+        average_cost = round(cost_of_orders / count, 2)
+        result += i + ': количество заказов - ' + str(count) + ', общее количество заказанных единиц товара - ' + str(count_products) + ', общая стоимость всех заказов - ' + str(cost_of_orders) + ', стоимость выполненных заказов - ' + str(cost_of_complt_orders) + ', средняя стоимость одного заказа - ' + str(average_cost) + '\n'
+    return result
+
+
+def status(orders):
+    statuses = set()
+    for o in orders:
+        if o["status"] not in statuses:
+            statuses.add(o["status"])
+    return statuses
+
+
+def statistic_by_statuses(orders):
+    result = ''
+    for i in ["новый", "в обработке", "выполнен", "отменён"]:
+        count = 0
+        for o in orders:
+            if o["status"] == i:
+                count += 1
+        result += i + ': ' + str(count) + '\n'
+    return result
+
+
+# общие показатели
+def count_orders(orders):
+    return len(orders)
+
+
+def count_cmplt_orders(orders):
+    count = 0
+    for o in orders:
+        if o["status"] == "выполнен":
+            count += 1
+    return count
+
+
+def count_otm_orders(orders):
+    count = 0
+    for o in orders:
+        if o["status"] == "отменён":
+            count += 1
+    return count
+
+
+def cost_of_all(orders):
+    cost = 0
+    for o in orders:
+        cost += calc_order_cost(o)
+    return cost
+
+
+# выручка по выполненным выше
+
+def average_cost(orders):
+    return cost_of_all(orders) / len(orders) if orders else 0
+
+
+def max_cost_order(orders):
+    m = 0
+    for o in orders:
+        m = max(m, calc_order_cost(o))
+    return m
+
+
+def max_customer(orders):
+    totals = {}
+    for o in orders:
+        if o["status"] == "выполнен":
+            totals[o["customer"]] = totals.get(o["customer"], 0) + calc_order_cost(o)
+    if not totals:
+        return "определить лучшего покупателя невозможно"
+    best = max(totals.values())
+    best_customers = [name for name, total in totals.items() if total == best]
+    return best_customers
+
+
+def make_report(orders, errors, filename="orders_report.txt"):
+    lines = []
+    lines.append("Количество корректных записей: " + str(len(orders)) + "\n")
+    lines.append("Количество некорректных записей: " + str(len(errors)) + "\n")
+    lines.append("Уникальные категории: " + ', '.join(products_category(orders)) + "\n")
+    lines.append("Заказы по убыванию стоимости: \n")
+    lines.append(result(sort_one(orders)))
+    lines.append("\n")
+    lines.append("Перечень крупных заказов: \n")
+    lines.append(big_orders(orders))
+    lines.append("\n")
+    lines.append("Общие показатели: \n")
+    lines.append("Общее количество заказов: " + str(count_orders(orders)))
+    lines.append("\n")
+    lines.append("Количество выполненных заказов: " + str(count_cmplt_orders(orders)) + '\n')
+    lines.append("Количество отмененных заказов: " + str(count_otm_orders(orders)) + '\n')
+    lines.append("Общая стоимость всех заказов: " + str(cost_of_all(orders)) + '\n')
+    lines.append("Выручка по выполненным заказам: " + str(calc_revenue(orders)) + '\n')
+    lines.append("Средняя стоимость заказа: " + str(average_cost(orders)) + '\n')
+    lines.append('Самый дорогой заказ: ' + str(max_cost_order(orders)) + '\n')
+    best = max_customer(orders)
+    if isinstance(best, list):
+        best_str = ', '.join(best) if best else "нет выполненных заказов"
+    else:
+        best_str = best
+    lines.append("Покупатели с наибольшей суммой выполненных заказов: " + best_str + '\n')
+    lines.append('Статистика по категориям: \n')
+    lines.append(statistic_by_products_category(orders))
+    lines.append("Статистика по статусам: \n")
+    lines.append(statistic_by_statuses(orders))
+    lines.append("Ошибки входных данных:\n")
+    lines.append(''.join(errors))
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write(''.join(lines))
+
+
+def print_menu():
+    print("=" * 40)
+    print("1. Показать все заказы")
+    print("2. Показать заказы по убыванию стоимости")
+    print("3. Показать товары по категориям")
+    print("4. Найти заказы по статусу")
+    print("5. Найти заказы по категории")
+    print("6. Найти заказы покупателя")
+    print("7. Показать крупные заказы")
+    print("8. Показать статистику")
+    print("9. Сохранить отчет")
+    print("0. Завершить программу")
+    print("=" * 40)
+
+
+def main():
+    try:
+        orders = load_orders("orders.txt")
+    except FileNotFoundError:
+        print("Файл orders.txt не найден.")
+        return
+    errors = error_check(orders)
+    while True:
+        print_menu()
+        choice = input("Выберите пункт: ").strip()
+        if choice == '0':
+            print("связь")
+            break
+        elif choice == '1':
+            print(result(orders))
+        elif choice == '2':
+            print(result(sort_one(orders)))
+        elif choice == '3':
+            print(result(sort_two(orders)))
+        elif choice == '4':
+            s = input("Выберите статус: ").strip()
+            out = filter_by_status(orders, s)
+            print(out if out else "Заказы с таким статусом не найдены.")
+        elif choice == '5':
+            c = input("Выберите категорию: ").strip()
+            out = filter_by_category(orders, c)
+            print(out if out else "Заказы с такой категорией не найдены.")
+        elif choice == '6':
+            customer = input("Выберите покупателя: ").strip()
+            out = filter_by_customer(orders, customer)
+            print(out if out else "Заказы этого покупателя не найдены.")
+        elif choice == '7':
+            print(big_orders(orders))
+        elif choice == '8':
+            print('Статистика по статусам: \n')
+            print(statistic_by_statuses(orders))
+            print('Статистика по категориям: \n')
+            print(statistic_by_products_category(orders))
+        elif choice == '9':
+            make_report(orders, errors, filename="orders_report.txt")
+        else:
+            print("Неизвестный пункт меню.")
+
+
+if __name__ == "__main__":
+    main()
