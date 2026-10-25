@@ -1,0 +1,17 @@
+def same_object(a,b):
+    return (id(a)==id(b))
+
+def same_value(a,b):
+    return (a==b)
+
+def deep_compare(a, b):
+    return (a==b)
+
+a = [1, 2, 3]
+b = a
+c = [1, 2, 3]
+print(same_object(a, b))      
+print(same_object(a, c))
+print(same_value(a, c))       
+print(deep_compare([[1, 2]], [[1, 2]]))  
+print(deep_compare([[1, 2]], [[1, 3]]))
