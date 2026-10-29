@@ -1,0 +1,142 @@
+class Node:
+    def __init__(self, value, next=None):
+        self.value = value
+        self.next = next
+
+
+class LinkedList:
+    def __init__(self):
+        self.head = None
+        self.tail = None
+        self.size = 0
+
+    def add_in_tail(self, value):
+        node = Node(value)
+        if self.head is None:
+            self.head = self.tail = node
+        else:
+            self.tail.next = node
+            self.tail = node
+        self.size += 1
+
+    def find(self, request_id):
+        def search(node):
+            if node is None:
+                return None
+            if isinstance(node.value, dict) and node.value.get("номер") == request_id:
+                return node.value
+            return search(node.next)
+        return search(self.head)
+
+    def to_list(self):
+        def collect(node):
+            if node is None:
+                return []
+            return [node.value] + collect(node.next)
+        return collect(self.head)
+
+    def reverse(self):
+        previous = None
+        current = self.head
+        self.tail = self.head
+        while current is not None:
+            next_node = current.next
+            current.next = previous
+            previous = current
+            current = next_node
+        self.head = previous
+
+    def length(self):
+        return self.size
+
+    def __repr__(self):
+        return f"LinkedList({self.to_list()!r})"
+
+
+class Stack:
+    def __init__(self):
+        self.head = None
+        self.size = 0
+    
+    def push(self, value):
+        self.head = Node(value, self.head)
+        self.size += 1
+
+    def pop(self):
+        if self.head is None:
+            raise IndexError("стек пуст")
+        node = self.head
+        self.head = node.next                 
+        self.size -= 1
+        return node.value
+
+    def peek(self):
+        if self.head is None:
+            raise IndexError("стек пуст")
+        return self.head.value
+
+    def __repr__(self):
+        values = []
+        node = self.head
+        while node:
+            values.append(node.value)
+            node = node.next
+        return f"Stack({values!r})"
+
+
+class Queue:
+    def __init__(self):
+        self.head = None
+        self.tail = None
+        self.size = 0
+
+    def enqueue(self, value):
+        node = Node(value)
+        if self.tail is None:
+            self.head = self.tail = node
+        else:
+            self.tail.next = node
+            self.tail = node
+        self.size += 1
+
+    def dequeue(self):
+        if self.head is None:
+            raise IndexError("извлечение из пустой очереди")
+        value = self.head.value
+        self.head = self.head.next
+        self.size -= 1
+        if self.head is None:
+            self.tail = None
+        return value
+
+    def remove_value(self, request_id):
+        previous = None
+        current = self.head
+        while current is not None:
+            if isinstance(current.value, dict) and current.value.get("номер") == request_id:
+                if previous is None:
+                    self.head = current.next
+                else:
+                    previous.next = current.next
+                
+                if current is self.tail:
+                    self.tail = previous
+                
+                self.size -= 1
+                return True
+            previous, current = current, current.next
+        return False
+
+    def to_list(self):
+        result = []
+        current = self.head
+        while current is not None:
+            result.append(current.value)
+            current = current.next
+        return result
+
+    def __len__(self):
+        return self.size
+
+    def __repr__(self):
+        return f"Queue({self.to_list()!r})"
