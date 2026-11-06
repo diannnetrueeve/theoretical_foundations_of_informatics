@@ -46,9 +46,9 @@ class LinkedList:
             current = next_node
         self.head = previous
 
-    def length(self):
+    def __len__(self):
         return self.size
-
+    
     def __repr__(self):
         return f"LinkedList({self.to_list()!r})"
 
